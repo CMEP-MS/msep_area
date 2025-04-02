@@ -1,0 +1,8 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+
+Data/Salinity/ignore_full-download/
+Data/Precip/downloaded\ from\ NCEI\ monthly\ normals/
+Data/Bathymetry/downloaded\ from\ Gulf\ Atlas/
