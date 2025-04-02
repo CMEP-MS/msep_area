@@ -1,0 +1,307 @@
+---
+title: "MSEP Watershed Population Calculations"
+author: "Kim Cressman, modified from code by Ed Sherwood of TBEP"
+output:
+   html_document:
+     df_print: paged
+     code_folding: hide
+     toc: true
+     toc_float: true
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(tidycensus) #Need an api key from US Census Bureau.
+library(sf)
+library(dplyr)
+library(tidyselect)
+library(tigris)
+options(tigris_use_cache = TRUE)
+knitr::opts_chunk$set(echo = TRUE)
+
+# library(mapview)
+
+# need to assign your census API key to your computer (once):
+# census_api_key("API KEY", overwrite = FALSE, install = TRUE)
+```
+
+## Read in MSEP map files  
+
+```{r}
+msep_sf <- st_read(here::here("Data",
+                      "Watershed Boundaries",
+                      "combined",
+                      "MSEP_outline.shp")) |> 
+    dplyr::select(-all_of(ends_with("_1")))
+
+```
+
+## Total watershed area  
+
+```{r}
+prettyNum(sum(msep_sf$aresqkm) * 0.3861, big.mark = ",")  # conversion factor to sq mi
+```
+
+
+
+## Read in US Census data
+
+Download US Census data for census tracts within the Mississippi region:
+
+```{r Acquire all US Census Data in TBEP watershed, warning = FALSE, message=FALSE, cache = TRUE}
+# check variable names if necessary
+# ####################
+# decennial:  
+# var_2020 <- load_variables(2020, "pl", cache = TRUE)
+
+# ACS: 
+# var_2023 <- load_variables(2023, "acs1", cache = TRUE)
+# var_2023.5 <- load_variables(2023, "acs5", cache = TRUE)
+
+
+# by tract
+# ####################
+# get
+ms2020 <- get_decennial(geography = "tract", variables = "P1_001N", year= 2020, state = "MS", geometry = TRUE)
+# transform and plot
+ms2020_sf <- st_transform(ms2020, st_crs(msep_sf))
+# plot(ms2020_sf)
+
+# get
+ms2023 <- get_acs(geography = "tract", variables = "B01001_001", year= 2023, state = "MS", geometry = TRUE)
+# transform and plot
+ms2023_sf <- st_transform(ms2023, st_crs(msep_sf))
+# plot(ms2023_sf)
+
+
+
+# by block group
+# ####################
+# block group yields 2445 rows. census tract is a variable. 
+# there can be multiple block groups within a census tract.
+# get
+ms_blockGroup_2020 <- get_decennial(
+    geography = "block group",
+    state = "Mississippi",
+    variables = c(population = "P1_001N",
+                  households_total = "H1_001N",
+                  households_occupied = "H1_002N"),
+    output = "wide",
+    year = 2020,
+    geometry = TRUE
+)
+# transform and plot
+ms2020_blockGroup <- st_transform(ms_blockGroup_2020, st_crs(msep_sf))
+# plot(ms2020_blockGroup)
+
+# get
+ms2023_blockGroup <- get_acs(geography = "block group", state = "Mississippi", 
+                             variables = "B01001_001", year= 2023, geometry = TRUE)
+# transform and plot
+ms2023_blockGroup <- st_transform(ms2023_blockGroup, st_crs(msep_sf))
+# plot(ms2023_blockGroup)
+```
+
+# Estimates by census tract  
+
+## 2020 workup  
+
+
+```{r}
+# simplified way of joining
+msep_joined <- st_join(msep_sf, ms2020_sf, join = st_intersects) 
+
+# tot_msep_pop <- msep_joined %>%
+#     dplyr::summarize(population = sum(value), n = n())
+
+pop_vals <- msep_joined$value
+
+# # originally had to join this way, before creating single boundary shapefile
+# msep_joined <- st_join(msep_sf, ms2020_sf, join = st_intersects) %>%
+#     sf::st_buffer(dist = 0) |> 
+#     distinct(GEOID, .keep_all = TRUE)  # because somehow the intersection introduces duplicate rows for each geoid, and inflates the total by about half a million
+
+# # Ed's shared code, as a check:
+# decennial_subset <- ms2020_sf[msep_sf, ]
+# # plot(decennial_subset)
+# 
+# msep_pop_intersects <- st_intersects(msep_sf, ms2020_sf)
+# msep_sel_sf <- ms2020_sf[unlist(msep_pop_intersects),]
+# #  plot(msep_sel_sf)
+# 
+# # THIS LINE OF CODE TAKES FOREVER with blocks - DON'T DO IT
+# msep_pop <- st_join(msep_sf, msep_sel_sf, join = st_intersects) %>%
+#   sf::st_buffer(dist = 0)
+# 
+# p <-  ggplot() +
+#        geom_sf(data=decennial_subset, aes(fill = value)) +
+#        geom_sf(color = NA) +
+#        geom_sf(data=msep_sf, alpha=0, colour="red") +
+#        coord_sf(crs = 4326)
+# 
+# p
+# 
+# tot_msep_pop <- decennial_subset %>%
+#   summarise(population = sum(value), n = n())
+```
+
+## 2020 Decennial Census Estimate  
+
+```{r}
+prettyNum(sum(pop_vals), big.mark = ",")
+```
+
+## 2023 workup  
+
+```{r}
+msep_joined <- st_join(msep_sf, ms2023_sf, join = st_intersects)
+pop_vals <- msep_joined$estimate
+
+
+# 
+# msep_joined <- st_join(msep_sf, ms2023_sf, join = st_intersects) %>%
+#     sf::st_buffer(dist = 0) |> 
+#     distinct(GEOID, .keep_all = TRUE)  # because somehow the intersection introduces duplicate rows for each geoid, and inflates the total by about half a million
+# 
+# tot_msep_pop <- msep_joined %>%
+#     summarise(population = sum(estimate), n = n())
+
+
+# # Ed's code; can use for a check
+# tract_subset <- ms2023_sf[msep_sf, ]
+# 
+# plot(tract_subset)
+# 
+# msep_pop_intersects <- st_intersects(msep_sf, ms2023_sf)
+# msep_sel_sf <- ms2023_sf[unlist(msep_pop_intersects),]
+# plot(msep_sel_sf)
+# 
+# msep_pop <- st_join(msep_sf, msep_sel_sf, join = st_intersects) %>%
+#   sf::st_buffer(dist = 0)
+# 
+# p <-  ggplot() +
+#        geom_sf(data=tract_subset, aes(fill = estimate)) +
+#        geom_sf(color = NA) +
+#        geom_sf(data=msep_sf, alpha=0, colour="red") +
+#        coord_sf(crs = 4326)
+# 
+# p
+# 
+# tot_msep_pop <- tract_subset %>%
+#   summarise(sum = sum(estimate), n = n())
+#  
+```
+
+## 2017-2023 ACS Survey Estimate
+
+```{r}
+prettyNum(sum(pop_vals), big.mark = ",")
+```
+
+# Estimates by block group  
+
+finer resolution than census tract  
+
+## 2020 workup  
+
+```{r}
+msep_joined <- st_join(msep_sf, ms2020_blockGroup, join = st_intersects)
+pop_vals <- msep_joined$population
+
+
+# msep_joined <- st_join(msep_sf, ms2020_blockGroup, join = st_intersects) %>%
+#     sf::st_buffer(dist = 0) |> 
+#     distinct(GEOID, .keep_all = TRUE)  # because somehow the intersection introduces duplicate rows for each geoid, and inflates the total by about half a million
+# 
+# tot_msep_pop <- msep_joined %>%
+#     summarise(population = sum(population), n = n())
+
+
+
+# # just assign the block group data frame to avoid so much code modification
+# ms2020_sf <- ms2020_blockGroup
+# 
+# # Ed's original code
+# decennial_subset <- ms2020_sf[msep_sf, ]
+# 
+# plot(decennial_subset)
+# 
+# msep_pop_intersects <- st_intersects(msep_sf, ms2020_sf)
+# msep_sel_sf <- ms2020_sf[unlist(msep_pop_intersects),]
+# plot(msep_sel_sf)
+# 
+# # THIS LINE OF CODE TAKES FOREVER with blocks - DON'T DO IT
+# msep_pop <- st_join(msep_sf, msep_sel_sf, join = st_intersects) %>%
+#   sf::st_buffer(dist = 0)
+# 
+# p <-  ggplot() +
+#        geom_sf(data=decennial_subset, aes(fill = population)) +
+#        geom_sf(color = NA) +
+#        geom_sf(data=msep_sf, alpha=0, colour="red") +
+#        coord_sf(crs = 4326)
+# 
+# p
+# 
+# tot_msep_pop <- decennial_subset %>%
+#   summarise(population = sum(population), n = n(),
+#             households_total = sum(households_total),
+#             households_occupied = sum(households_occupied))
+#  
+```
+
+## 2020 Decennial Census Estimate from block groups  
+
+```{r}
+prettyNum(sum(pop_vals), big.mark = ",")
+```
+
+
+## 2023 ACS workup  
+
+```{r}
+msep_joined <- st_join(msep_sf, ms2023_blockGroup, join = st_intersects)
+pop_vals <- msep_joined$estimate
+
+# msep_joined <- st_join(msep_sf, ms2023_blockGroup, join = st_intersects) %>%
+#     sf::st_buffer(dist = 0) |> 
+#     distinct(GEOID, .keep_all = TRUE)  # because somehow the intersection introduces duplicate rows for each geoid, and inflates the total by about half a million
+# 
+# tot_msep_pop <- msep_joined %>%
+#     summarise(population = sum(estimate), n = n())
+
+
+# # just assign the block group data frame to avoid so much code modification
+# ms2023_sf <- ms2023_blockGroup
+# 
+# # Ed's code
+# decennial_subset <- ms2023_sf[msep_sf, ]
+# 
+# plot(decennial_subset)
+# 
+# msep_pop_intersects <- st_intersects(msep_sf, ms2023_sf)
+# msep_sel_sf <- ms2023_sf[unlist(msep_pop_intersects),]
+# plot(msep_sel_sf)
+# 
+# # THIS LINE OF CODE TAKES FOREVER with blocks - DON'T DO IT
+# msep_pop <- st_join(msep_sf, msep_sel_sf, join = st_intersects) %>%
+#   sf::st_buffer(dist = 0)
+# 
+# p <-  ggplot() +
+#        geom_sf(data=decennial_subset, aes(fill = estimate)) +
+#        geom_sf(color = NA) +
+#        geom_sf(data=msep_sf, alpha=0, colour="red") +
+#        coord_sf(crs = 4326)
+# 
+# p
+# 
+# tot_msep_pop <- decennial_subset %>%
+#   summarise(population = sum(estimate), n = n())
+ 
+```
+
+## 2023 ACS Estimate from block groups  
+
+```{r}
+prettyNum(sum(pop_vals), big.mark = ",")
+```
+
