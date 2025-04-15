@@ -1,5 +1,6 @@
 # Make a map of 30-year normal annual precipitation
 # based on data from PRISM group at Oregon State University
+# for CCMP
 
 library(terra)
 library(sf)
@@ -52,6 +53,16 @@ col_palette <- RColorBrewer::brewer.pal(n_colors, "YlGnBu")
 val_range <- range(values(prcp_ms_inches), na.rm = TRUE)
 
 # use of image() ----
+# 
+# set up saving as png
+
+png(file = here::here("Maps",
+                      "annual-precip-normals.png"),
+    width = 5,
+    height = 5.5,
+    units = "in",
+    res = 300)
+
 # Plot using image()
 image(prcp_ms_inches, 
       col = col_palette, 
@@ -72,3 +83,6 @@ legend("bottomright",
        lwd = 2, 
        bty = "n", 
        cex = 0.8)
+
+# end saving png
+dev.off()

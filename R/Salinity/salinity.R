@@ -17,6 +17,13 @@ dat$SAL_HIGH <- factor(dat$SAL_HIGH, levels = c("0-0.5", "0.5-5", "05-15", "15-2
 colors <- RColorBrewer::brewer.pal(5, "GnBu")
 names(colors) <- c("0-0.5", "0.5-5", "05-15", "15-25", ">25")
 
+# save as png
+
+png(file = here::here("Maps",
+                      "salinity-maps.png"),
+    width = 6.5, height = 5.5,
+    units = "in",
+    res = 300)
 
 # plot on top of each other
 par(mfrow = c(2, 1)) 
@@ -28,6 +35,9 @@ plot(dat["SAL_HIGH"], col = colors[dat$SAL_HIGH], main = "High Salinity Period")
 par(xpd = TRUE)
 legend("bottomright", horiz = TRUE,
        legend = names(colors), fill = colors, title = "Salinity (ppt)")
+
+# end saving
+dev.off()
 
 # Reset to default plotting layout
 par(mfrow = c(1, 1)) # Reset to default layout
