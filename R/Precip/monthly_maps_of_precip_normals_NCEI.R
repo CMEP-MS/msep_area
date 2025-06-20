@@ -117,3 +117,81 @@ for(i in seq_along(names(monthly_ms_in))){
     
     
 }
+
+
+# using binning ----
+breaks <- seq(2.5, 8.5, by = 0.5)
+
+# Cut the raster values into bins using classify
+r_binned <- classify(monthly_ms_in, rcl = cbind(breaks[-length(breaks)], 
+                                                breaks[-1], seq_along(breaks[-1])))
+
+# Assign labels (optional, for legend clarity)
+labels.breaks <- breaks[-1]
+labels[!stringr::str_ends(as.character(labels.breaks), ".5")] <- ""
+labels <- stringr::str_replace(labels, ".5", "")
+
+
+my_colors <- colorRampPalette(brewer.pal(9, "GnBu"))(length(labels)) 
+
+
+ggplot() +
+    geom_spatraster(data = r_binned) +
+    facet_wrap(~lyr) +
+    scale_fill_stepsn(
+        colours = my_colors,
+        breaks = seq_along(labels.breaks),
+        # labels = labels,
+        limits = c(min(breaks), max(breaks)),
+        na.value = NA
+    ) +
+    geom_sf(data = ms_rne,
+            fill = NA,
+            col = "black",
+            linewidth = 0.7) +
+    theme_void() +
+    labs(fill = "Inches")
+
+ggsave(filename = here::here("Maps", "Precip_monthly",
+                             "binned",
+                             "00_all_months_binned.png"),
+       height = 8,
+       width = 8,
+       units = "in",
+       dpi = 800)
+
+for(i in seq_along(names(r_binned))){
+    # pull the layer
+    tmp <- r_binned[[i]]
+    month_nm <- names(r_binned)[i]
+    
+    p <- ggplot() +
+        geom_spatraster(data = tmp) +
+        scale_fill_stepsn(
+            colours = my_colors,
+            breaks = seq_along(labels.breaks),
+            # labels = labels,
+            limits = c(min(breaks), max(breaks)),
+            na.value = NA
+        ) +
+        geom_sf(data = ms_rne,
+                fill = NA,
+                col = "black",
+                linewidth = 0.7) +
+        theme_void() +
+        theme(legend.position = "none")
+    
+    flnm <- paste0(sprintf("%02d", i), "_", month_nm, "_binned.png") 
+    
+    ggsave(filename = here::here("Maps",
+                                 "Precip_monthly",
+                                 "binned",
+                                 flnm),
+           plot = p,
+           height = 11,
+           width = 8,
+           units = "in",
+           dpi = 800)
+    
+    
+}
