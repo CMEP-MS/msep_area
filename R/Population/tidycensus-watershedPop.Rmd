@@ -34,6 +34,8 @@ msep_sf <- st_read(here::here("Data",
                       "MSEP_outline.shp")) |> 
     dplyr::select(-all_of(ends_with("_1")))
 
+# make sure I'm only using Mississippi info
+ggplot(msep_sf) + geom_sf()
 ```
 
 ## Total watershed area  

@@ -120,28 +120,18 @@ for(i in seq_along(names(monthly_ms_in))){
 
 
 # using binning ----
+# one inch bins seemed to work best
 breaks <- seq(2.5, 8.5, by = 0.5)
 
-# Cut the raster values into bins using classify
-r_binned <- classify(monthly_ms_in, rcl = cbind(breaks[-length(breaks)], 
-                                                breaks[-1], seq_along(breaks[-1])))
-
-# Assign labels (optional, for legend clarity)
-labels.breaks <- breaks[-1]
-labels[!stringr::str_ends(as.character(labels.breaks), ".5")] <- ""
-labels <- stringr::str_replace(labels, ".5", "")
-
-
-my_colors <- colorRampPalette(brewer.pal(9, "GnBu"))(length(labels)) 
+my_colors <- colorRampPalette(brewer.pal(9, "GnBu"))(length(breaks) - 1) 
 
 
 ggplot() +
-    geom_spatraster(data = r_binned) +
+    geom_spatraster(data = monthly_ms_in) +
     facet_wrap(~lyr) +
     scale_fill_stepsn(
         colours = my_colors,
-        breaks = seq_along(labels.breaks),
-        # labels = labels,
+        breaks = seq_along(breaks),
         limits = c(min(breaks), max(breaks)),
         na.value = NA
     ) +
@@ -160,17 +150,16 @@ ggsave(filename = here::here("Maps", "Precip_monthly",
        units = "in",
        dpi = 800)
 
-for(i in seq_along(names(r_binned))){
+for(i in seq_along(names(monthly_ms_in))){
     # pull the layer
-    tmp <- r_binned[[i]]
-    month_nm <- names(r_binned)[i]
+    tmp <- monthly_ms_in[[i]]
+    month_nm <- names(monthly_ms_in)[i]
     
     p <- ggplot() +
         geom_spatraster(data = tmp) +
         scale_fill_stepsn(
             colours = my_colors,
-            breaks = seq_along(labels.breaks),
-            # labels = labels,
+            breaks = seq_along(breaks),
             limits = c(min(breaks), max(breaks)),
             na.value = NA
         ) +
